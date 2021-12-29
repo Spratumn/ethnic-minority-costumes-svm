@@ -1,2 +1,4 @@
 datasets
 weights
+*.npy
+*__pycache__*

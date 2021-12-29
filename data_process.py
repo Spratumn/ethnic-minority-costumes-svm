@@ -1,7 +1,6 @@
 import os
 
 
-
 def gather_dataset(oriDir, saveDir):
     classnames = os.listdir(oriDir)
     imageDir = os.path.join(saveDir, 'images')
@@ -29,5 +28,5 @@ def gather_dataset(oriDir, saveDir):
     
     annoFile.close()
 
-
-gather_dataset(oriDir='./datasets/origin', saveDir='./datasets')
+if __name__ == '__main__':
+    gather_dataset(oriDir='./datasets/origin', saveDir='./datasets')

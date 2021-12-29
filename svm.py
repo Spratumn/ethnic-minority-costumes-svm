@@ -3,20 +3,14 @@ import cv2
 import random
 import numpy as np
 from sklearn import svm
-
+import time
 import joblib
 from tqdm import tqdm
 
 from lbp import get_lbp_features
 from eval import plot_confusion_matrix, plot_prediction
 from pca import MyPCA
-
-CELL_NUMS = (4, 8)
-BIN_SIZE = 256
-LBP_FLAG = 0
-NORMAL = True
-PCA_RATE = 0.1
-USE_LIB_PCA = False
+from svm_config import *
 
 
 def get_dataset(datasetDir):
@@ -44,16 +38,20 @@ def split_dataset(dataList, train=0.7, test=0.3, shuffle=True):
     return trainSet, testSet
 
 def load_sample(dataList):
+    
     for (imagePath, id) in dataList:
         try:
             image = cv2.imread(imagePath)
             image.shape
-            X = get_lbp_features(image, CELL_NUMS, BIN_SIZE, LBP_FLAG, NORMAL, PCA_RATE)
+            X = get_lbp_features(image, CELL_NUMS, BIN_SIZE, LBP_LIB_FLAG, NORMAL)
             y  = id
-        except:
+            yield X, y
+        except InterruptedError:
+            break
+        except AttributeError:
             pass
             # print('Invalid imagePath: ', imagePath)
-        yield X, y
+        
 
 
 def load_data(dataList, cachePath=''):
@@ -79,14 +77,13 @@ def run_train(dataDir, modelPath="./weights/svm_lpb_basic.weights"):
     trainX, trainy = load_data(train, dataDir + '/' + 'train')
 
     classifier = svm.SVC(C=1, kernel='rbf')
-    if PCA_RATE != 1:
-        assert 0 < PCA_RATE < 1
-        pca = MyPCA(n_components=PCA_RATE, use_lib=USE_LIB_PCA)
+    if PCA_RATE > 0:
+        pca = MyPCA(n_components=PCA_RATE, use_lib=PCA_LIB_FLAG)
         print('training pca with trainset...')
         pca.train(trainX)
         pca.save('./weights/pca.weights')
         trainX = pca.transform(trainX)
-    
+    print('training SVM with trainset...')
     classifier.fit(trainX, trainy)
     joblib.dump(classifier, modelPath)
 
@@ -100,26 +97,29 @@ def run_eval(dataDir, modelPath="./weights/svm_lpb_basic.weights"):
     trainX, trainy = load_data(train, dataDir + '/' + 'train')
     testX, testy = load_data(test, dataDir + '/' + 'test')
 
-    if PCA_RATE != 1:
-        assert 0 < PCA_RATE < 1
-        pca = MyPCA(n_components=PCA_RATE, use_lib=USE_LIB_PCA)
+    if PCA_RATE > 0:
+        pca = MyPCA(n_components=PCA_RATE, use_lib=PCA_LIB_FLAG)
         pca.load('./weights/pca.weights')
         trainX = pca.transform(trainX)
         testX = pca.transform(testX)
-
+    print('cal score with trainset...')
     scoreTrain = classifier.score(trainX, trainy)
+    print(f"The score of trainset: {scoreTrain}")
+    print('cal score with testset...')
     scoreTest = classifier.score(testX,testy)
-    print(f"The score of classifier is train: {scoreTrain}, test: {scoreTest}")
+    print(f"The score of testset: {scoreTest}")
 
     trainPredDict = {0: ['manzu', 0, 0], 1: ['mengguzu', 0, 0], 2: ['miaozu', 0, 0], 3: ['yaozu', 0, 0], 4: ['zhuangzu', 0, 0]}
     trainPreds, trainGts = [], []
+    start = time.time()
     for x, y in zip(trainX, trainy):
         trainPredDict[y][1] += 1
         pred = classifier.predict([x])[0]
         trainPreds.append(classMap[pred])
         trainGts.append(classMap[y])
         if pred == y:trainPredDict[y][2]+=1
-    print(trainPredDict)
+    print(f'mean predict time cost: {(time.time() - start) / len(trainy)}')
+    plot_prediction(trainPredDict)
     plot_confusion_matrix(trainPreds, trainGts, classLabels)
 
     testPredDict = {0: ['manzu', 0, 0], 1: ['mengguzu', 0, 0], 2: ['miaozu', 0, 0], 3: ['yaozu', 0, 0], 4: ['zhuangzu', 0, 0]}
@@ -136,9 +136,13 @@ def run_eval(dataDir, modelPath="./weights/svm_lpb_basic.weights"):
 
 
 if __name__ == '__main__':
-    run_train('./datasets')
-    run_eval('./datasets')
-
+    dataDir = './datasets'
+    
+    start = time.time()
+    run_train(dataDir)
+    print(f'train time cost: {time.time() - start}')
+    
+    run_eval(dataDir)
     
 
 

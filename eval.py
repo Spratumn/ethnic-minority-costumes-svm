@@ -17,7 +17,7 @@ def plot_confusion_matrix(preds, gts, labels=None):
 
 
 def plot_prediction(predDict):
-    # {0: ['manzu', 0, 0], 1: ['mengguzu', 0, 0], 2: ['miaozu', 0, 0], 3: ['yaozu', 0, 0], 4: ['zhuangzu', 0, 0]}
+    print(predDict)
     ids = []
     labels = []
     true = []

@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+import os
 import skimage.feature
 import skimage.segmentation
 import time
-import math
+from tqdm import tqdm
+
 
 def get_lbp_features(image, cellNums=(4, 4), binSize=64, flag=0, normal=False):
     lbp = extract_basic_lbp(image=image, flag=flag)
@@ -21,7 +23,6 @@ def get_lbp_features(image, cellNums=(4, 4), binSize=64, flag=0, normal=False):
             cellLbp = lbp[t:b, l:r]
             lbpHist.append(cal_hist(cellLbp, binSize).reshape(1, -1)[0])
     lbpHist = np.concatenate(lbpHist, dtype=np.float32)
-    
     if normal:
         _range = np.max(lbpHist) - np.min(lbpHist)
         lbpHist = (lbpHist - np.min(lbpHist)) / _range
@@ -33,7 +34,7 @@ def cal_hist(gray, binSize=8):
 
 def extract_basic_lbp(image, flag=0):
     gray = cv2.cvtColor(cv2.cvtColor(image,cv2.COLOR_BGR2RGB),cv2.COLOR_BGR2GRAY)
-    extractor = cal_lbp_lib if flag == 0 else cal_lbp_manual
+    extractor = cal_lbp_lib if flag == 1 else cal_lbp_manual
     return extractor(gray)
 
 
@@ -44,50 +45,51 @@ def cal_lbp_lib(gray):
 
 
 def cal_lbp_manual(gray):
-    def cal_pixel_lbp(gray, x, y):
-        h, w = gray.shape
-        sum = 0
-        # 0
-        lx, ly = x-1, y-1
-        if lx < 0 or ly < 0:pass
-        else: sum += 0 if gray[ly, lx] <= gray[y, x] else 1
-        # 1
-        lx, ly = x-1, y
-        if lx < 0:pass
-        else: sum += 0 if gray[ly, lx] <= gray[y, x] else 2
-        # 2
-        lx, ly = x-1, y+1
-        if lx < 0 or ly >= h:pass
-        else: sum += 0 if gray[ly, lx] <= gray[y, x] else 4
-        # 3
-        lx, ly = x, y+1
-        if ly >= h:pass
-        else: sum += 0 if gray[ly, lx] <= gray[y, x] else 8
-        # 4
-        lx, ly = x+1, y+1
-        if lx >= w or ly >= h:pass
-        else: sum += 0 if gray[ly, lx] <= gray[y, x] else 16
-        # 5
-        lx, ly = x+1, y
-        if lx >= w:pass
-        else: sum += 0 if gray[ly, lx] <= gray[y, x] else 32
-        # 6
-        lx, ly = x+1, y-1
-        if lx >= w or ly < 0:pass
-        else: sum += 0 if gray[ly, lx] <= gray[y, x] else 64
-        # 7
-        lx, ly = x, y-1
-        if ly < 0:pass
-        else: sum += 0 if gray[ly, lx] <= gray[y, x] else 128
-        return sum
     
     h, w = gray.shape
-    lap = np.zeros((h, w))
+    lbp = np.zeros((h, w))
     for y in range(h):
         for x in range(w):
-            lap[y, x] =  cal_pixel_lbp(gray, x, y)
-    return lap
+            lbp[y, x] =  cal_pixel_lbp(gray, x, y)
+    lbp = lbp.astype(np.uint8)
+    return 255 - lbp
 
+def cal_pixel_lbp(gray, x, y):
+    h, w = gray.shape
+    sum = 0
+    # 0
+    lx, ly = x-1, y-1
+    if lx < 0 or ly < 0:pass
+    else: sum += 0 if gray[ly, lx] <= gray[y, x] else 1
+    # 1
+    lx, ly = x-1, y
+    if lx < 0:pass
+    else: sum += 0 if gray[ly, lx] <= gray[y, x] else 2
+    # 2
+    lx, ly = x-1, y+1
+    if lx < 0 or ly >= h:pass
+    else: sum += 0 if gray[ly, lx] <= gray[y, x] else 4
+    # 3
+    lx, ly = x, y+1
+    if ly >= h:pass
+    else: sum += 0 if gray[ly, lx] <= gray[y, x] else 8
+    # 4
+    lx, ly = x+1, y+1
+    if lx >= w or ly >= h:pass
+    else: sum += 0 if gray[ly, lx] <= gray[y, x] else 16
+    # 5
+    lx, ly = x+1, y
+    if lx >= w:pass
+    else: sum += 0 if gray[ly, lx] <= gray[y, x] else 32
+    # 6
+    lx, ly = x+1, y-1
+    if lx >= w or ly < 0:pass
+    else: sum += 0 if gray[ly, lx] <= gray[y, x] else 64
+    # 7
+    lx, ly = x, y-1
+    if ly < 0:pass
+    else: sum += 0 if gray[ly, lx] <= gray[y, x] else 128
+    return sum
 
 def show_lbp_result(rgb, lbp):
     plt.subplot(1,2,1)
@@ -107,9 +109,31 @@ def diff_lbp_result(lbp1, name1, lbp2, name2):
     plt.show()
 
 
+
+def test_time_cost(datasetDir, cellNums=(4, 8), binSize=256, normal=True):
+    imageDir = datasetDir + '/images'
+    imagenames = os.listdir(imageDir)
+    start = time.time()
+    total = 0
+    for imagename in tqdm(imagenames):
+        image = cv2.imread(os.path.join(imageDir, imagename))
+        try:
+            image.shape
+            get_lbp_features(image, cellNums=cellNums, binSize=binSize, flag=1, normal=normal)
+            total += 1
+        except InterruptedError:
+            break
+        except AttributeError:
+            pass
+    print(f'config: cellNums=({cellNums}), binSize={binSize}, normal={normal}')
+    print(f'mean time cost is {(time.time() - start) / total}')
+
 if __name__ == '__main__':
-    image = cv2.imread('datasets/images/0000002.jpg')
-    print(get_lbp_features(image, cellNums=(4, 4), binSize=64, flag=0, normal=True))
+    datasetDir = './datasets'
+    # image = cv2.imread('datasets/images/0000001.jpg')
+    # print(get_lbp_features(image, cellNums=(4, 8), binSize=256, flag=0, normal=True))
+    test_time_cost(datasetDir, cellNums=(6, 12), binSize=256, normal=True)
+
 
 
     
