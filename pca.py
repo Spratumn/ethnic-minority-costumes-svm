@@ -3,13 +3,16 @@ from numpy.linalg import eig
 from sklearn.decomposition import PCA
 import joblib
 
-
+# 实现PCA处理
 class MyPCA:
     def __init__(self, n_components=1, use_lib=0):
+        # n_components：降维比例或降维后的特征维数
+        # use_lib：是否使用库函数进行处理
         self.components = n_components
         self.principalEigenvectors = None
         self.use_lib = use_lib
-
+    
+    # 使用训练集数据进行pca训练
     def train(self, X):
         if self.components < 1:
             oriLength = X.shape[1]
@@ -28,20 +31,22 @@ class MyPCA:
         eigPairs.sort(reverse=True)
         self.principalEigenvectors = np.array([ele[1] for ele in eigPairs[:componentNums]]).T
             
-
+    # 对原始高维数据进行降维处理，得到低维数据
     def transform(self, X):
         if self.use_lib:
             return self._pca.transform(X)
         mean = np.mean(X, axis=0)
         return np.dot(X-mean, self.principalEigenvectors)
     
+    # 保存pca训练参数
     def save(self, path):
         if self.use_lib:
             joblib.dump(self._pca, path)
         else:
             path = path.replace('.weights', '.npy')
             np.save(path, self.principalEigenvectors)
-
+    
+    # 加载pca训练参数
     def load(self, path):
         if self.use_lib:
             self._pca = joblib.load(path)

@@ -8,8 +8,18 @@ import time
 from tqdm import tqdm
 
 
+# 从给定图像提取基于lbp的直方图特征
 def get_lbp_features(image, cellNums=(4, 4), binSize=64, flag=0, normal=False):
+    """
+    cellNums: LBP划分区域数量（WN, HN）
+    binSize: 直方图分箱数量
+    flag: 是否使用sklearn库提供的接口进行LBP提取
+    normal: 是否对直方图特征进行归一化处理
+    """
+    # 1.提取整幅图像的lbp特征
     lbp = extract_basic_lbp(image=image, flag=flag)
+    
+    # 2. 将lbp特征按照cellNums划分子区域进行直方图统计
     h, w = lbp.shape[:2]
     cellSizeH = h // cellNums[1]
     cellSizeW = w // cellNums[0]
@@ -22,38 +32,45 @@ def get_lbp_features(image, cellNums=(4, 4), binSize=64, flag=0, normal=False):
             b = h if j == cellNums[1] - 1 else (j+1)*cellSizeH 
             cellLbp = lbp[t:b, l:r]
             lbpHist.append(cal_hist(cellLbp, binSize).reshape(1, -1)[0])
+    # 3.将子区域的直方图串接起来
     lbpHist = np.concatenate(lbpHist, dtype=np.float32)
+    
+    # 4. 对直方图特征进行归一化处理
     if normal:
         _range = np.max(lbpHist) - np.min(lbpHist)
         lbpHist = (lbpHist - np.min(lbpHist)) / _range
+    
     return lbpHist
+
 
 def cal_hist(gray, binSize=8):
     return cv2.calcHist([gray], [0], None, [binSize], [0, 256])
 
-
+# 对给定图像提取lbp特征
 def extract_basic_lbp(image, flag=0):
-    gray = cv2.cvtColor(cv2.cvtColor(image,cv2.COLOR_BGR2RGB),cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(cv2.cvtColor(image,cv2.COLOR_BGR2RGB),cv2.COLOR_RGB2GRAY)
     extractor = cal_lbp_lib if flag == 1 else cal_lbp_manual
     return extractor(gray)
 
-
+# 使用sklearn提供的lbp特征提取方法
 def cal_lbp_lib(gray):
     lbp = skimage.feature.local_binary_pattern(gray,8,1.0,method='default')
     lbp = lbp.astype(np.uint8)
     return lbp
 
-
+# 自己手写实现的lbp特征提取方法
 def cal_lbp_manual(gray):
-    
     h, w = gray.shape
     lbp = np.zeros((h, w))
+    # 逐行逐列对图像进行lbp特征计算
     for y in range(h):
         for x in range(w):
             lbp[y, x] =  cal_pixel_lbp(gray, x, y)
+    
     lbp = lbp.astype(np.uint8)
     return 255 - lbp
 
+# 对图像中坐标（x,y）处的像素位置计算lbp特征值
 def cal_pixel_lbp(gray, x, y):
     h, w = gray.shape
     sum = 0
@@ -91,6 +108,7 @@ def cal_pixel_lbp(gray, x, y):
     else: sum += 0 if gray[ly, lx] <= gray[y, x] else 128
     return sum
 
+# 绘制lbp特征图像
 def show_lbp_result(rgb, lbp):
     plt.subplot(1,2,1)
     plt.imshow(rgb)
@@ -109,7 +127,7 @@ def diff_lbp_result(lbp1, name1, lbp2, name2):
     plt.show()
 
 
-
+# 对lbp特征提取进行时间统计
 def test_time_cost(datasetDir, cellNums=(4, 8), binSize=256, normal=True):
     imageDir = datasetDir + '/images'
     imagenames = os.listdir(imageDir)
@@ -130,9 +148,12 @@ def test_time_cost(datasetDir, cellNums=(4, 8), binSize=256, normal=True):
 
 if __name__ == '__main__':
     datasetDir = './datasets'
-    # image = cv2.imread('datasets/images/0000001.jpg')
+    image = cv2.imread('datasets/images/0000001.jpg')
+    lbp = extract_basic_lbp(image, flag=1)
+    show_lbp_result(cv2.cvtColor(image,cv2.COLOR_BGR2RGB), lbp)
     # print(get_lbp_features(image, cellNums=(4, 8), binSize=256, flag=0, normal=True))
-    test_time_cost(datasetDir, cellNums=(6, 12), binSize=256, normal=True)
+
+    # test_time_cost(datasetDir, cellNums=(6, 12), binSize=256, normal=True)
 
 
 

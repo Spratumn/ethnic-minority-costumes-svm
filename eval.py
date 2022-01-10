@@ -1,6 +1,7 @@
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 
+# 使用预测结果和真实值绘制混淆矩阵
 def plot_confusion_matrix(preds, gts, labels=None):
     cm = confusion_matrix(gts, preds)
     plt.matshow(cm, cmap=plt.cm.Reds)
@@ -16,6 +17,7 @@ def plot_confusion_matrix(preds, gts, labels=None):
     plt.show()
 
 
+# 绘制预测结果柱状图
 def plot_prediction(predDict):
     print(predDict)
     ids = []

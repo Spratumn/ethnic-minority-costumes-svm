@@ -16,6 +16,7 @@ LBP（Local Binary Pattern，局部二值模式）是一种用来描述图像局
 3. 将各区域的直方图拼接即可得到该图像的LBP直方图特征；
 4. 将得到的LBP直方图特征进行归一化，即可作为最终的分类器输入特征。
 
+![](./assets/lbp.png)
 ### 特征提取耗时
 cellNums=((4, 8)), binSize=256, normal=True 平均耗时 0.08749s
 cellNums=((6, 12)), binSize=256, normal=True 平均耗时 0.08813s
